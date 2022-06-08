@@ -1,0 +1,63 @@
+---
+- name: OpenVPN - Create config directories
+  file:
+    state: directory
+    path: "/etc/openvpn/{{ vpn.name }}"
+    owner: root 
+    group: root 
+    mode: '0755'
+  loop: "{{ vpns }}"
+
+- name: OpenVPN - Create log directories
+  file:
+    state: directory
+    path: "/etc/openvpn/{{ vpn.name }}"
+    owner: root 
+    group: root 
+    mode: '0755'
+
+- name: OpenVPN - Configuration files
+  template:
+    src: "openvpn-server.conf.j2"
+    dest: "/etc/openvpn/{{ vpn.name }}.conf"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: OpenVPN - Copy CA 
+  copy:
+    content: "{{ vpn.ca }}"
+    dest: "/etc/openvpn/{{ vpn.name }}/ca.crt"
+
+- name: OpenVPN - Copy server certificate 
+  copy:
+    content: "{{ vpn.cert }}"
+    dest: "/etc/openvpn/{{ vpn.name }}/ovpn-server.crt"
+
+- name: OpenVPN - Copy server key
+  copy:
+    content: "{{ vpn.key }}"
+    dest: "/etc/openvpn/{{ vpn.name }}/ovpn-server.key"
+
+- name: OpenVPN - Copy dh key
+  copy:
+    content: "{{ vpn.dh }}"
+    dest: "/etc/openvpn/{{ vpn.name }}/dh.key"
+
+- name: OpenVPN - Check if tls-crypt key exists
+  stat:
+    path: "/etc/openvpn/{{ vpn.name }}/ta.key" 
+  register: file_data
+
+- name: OpenVPN - Generate tls-crypt key
+  when: not file_data.stat.exists
+  shell:
+    command: "openpvn --genkey secret /etc/openvpn/{{ vpn.name }}/ta.key"
+
+- name: OpenVPN - Enabled and start service
+  systemd:
+    state: started
+    enabled: yes
+    name: "openvpn@{{ vpn.name }}"
+  
+...

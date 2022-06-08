@@ -1,0 +1,20 @@
+---
+- name: Packages - Install required
+  apt:
+    state: present
+    pkg: {{ mandatory_packages_list }}
+
+- name: Packages - Update all
+  apt:
+    state: latest
+    name: "*"
+
+- name: UFW - Allow OpenSSH
+  ufw:
+    rule: allow
+    name: OpenSSH
+
+- name: UFW - Enable
+  ufw:
+    state: enabled
+...

@@ -1,0 +1,13 @@
+mandatory_packages_list:
+  - ufw
+vpns:
+  - name: saturne
+    port: 51957
+    proto: udp6
+    subnet: 10.8.0.0
+    subnet_mask: 255.255.255.0
+    ca: ""
+    cert: ""
+    key: ""
+    dh: ""
+    ta: ""

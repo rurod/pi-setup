@@ -1,0 +1,13 @@
+---
+- name: Package - Install OpenVPN
+  apt:
+    state: latest
+    name: OpenVPN
+
+- name: OpenVPN - Configure VPNs
+  include_tasks:
+    file: private/openvpn-config.yml
+  vars:
+    vpn: "{{ item }}"
+  loop: "{{ vpns }}" 
+...

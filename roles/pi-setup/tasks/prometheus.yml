@@ -1,0 +1,38 @@
+---
+- name: Prometheus - Generate temporary install directory
+  tempfile:
+    state: directory
+    suffix: install
+  register: tmp_dir
+
+- name: Download Prometheus archive
+https://github.com/prometheus/prometheus/releases/download/v2.36.0/prometheus-2.36.0.linux-arm64.tar.gz
+  get_url:
+    url: "{{ prometheus_archive_url }}"
+    dest: "{{ tmp_dir }}/prometheus.tar.gz"
+    mode: '0400'
+
+- name: Prometheus - Add user
+  user:
+    state: present
+    name: prometheus
+    group: prometheus
+    shell: /usr/sbin/nologin
+
+- name: Prometheus - Create dirs
+  file:
+    state: directory
+    path: "{{ item }}"
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  loop:
+    - /etc/prometheus
+    - /var/lib/prometheus
+
+- name: Prometheus - Removing the temporary file
+  when: tmp_dir.path is defined
+  file:
+    path: "{{ tmp_dir.path }}"
+    state: absent
+...
