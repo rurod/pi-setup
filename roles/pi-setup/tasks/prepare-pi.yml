@@ -9,6 +9,20 @@
     state: latest
     name: "*"
 
+- name: Fail2Ban - Template configuration
+  template:
+    src: "jail.conf.j2"
+    dest: "/etc/fail2ban/jail.conf"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Fail2Ban - Start and enable
+  systemd:
+    state: started
+    enabled: yes
+    name: fail2ban
+
 - name: UFW - Allow OpenSSH
   ufw:
     rule: allow

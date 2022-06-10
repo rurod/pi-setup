@@ -4,6 +4,14 @@
     state: latest
     name: OpenVPN
 
+- name: Fail2Ban - Configure OpenVPN filter
+  template:
+    src: "f2b-filter-openvpn.local"
+    dest: "/etc/fail2ban/filter.d/openvpn.conf"
+    owner: root
+    group: root
+    mode: '0644'
+
 - name: OpenVPN - Configure VPNs
   include_tasks:
     file: private/openvpn-config.yml

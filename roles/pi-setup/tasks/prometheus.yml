@@ -5,13 +5,6 @@
     suffix: install
   register: tmp_dir
 
-- name: Download Prometheus archive
-https://github.com/prometheus/prometheus/releases/download/v2.36.0/prometheus-2.36.0.linux-arm64.tar.gz
-  get_url:
-    url: "{{ prometheus_archive_url }}"
-    dest: "{{ tmp_dir }}/prometheus.tar.gz"
-    mode: '0400'
-
 - name: Prometheus - Add user
   user:
     state: present
@@ -29,6 +22,72 @@ https://github.com/prometheus/prometheus/releases/download/v2.36.0/prometheus-2.
   loop:
     - /etc/prometheus
     - /var/lib/prometheus
+
+- name: Prometheus - Download archive
+  get_url:
+    url: "{{ prometheus_archive_url }}"
+    dest: "{{ tmp_dir.path }}/prometheus.tar.gz"
+    mode: '0400'
+
+- name: Prometheus - Unarchive
+  unarchive:
+    src: "{{ tmp_dir.path }}/prometheus.tar.gz"
+    dest: "{{ tmp_dir.path }}/"
+    remote_src: yes
+
+- name: Prometheus - Copy binary
+  copy:
+    src: "{{ tmp_dir.path }}/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    remote_src: yes
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  loop:
+    - prometheus
+    - promtool
+
+- name: Prometheus - Copy console directories
+  copy:
+    src: "{{ tmp_dir.path }}/{{ item }}"
+    dest: "/etc/prometheus/{{ item }}"
+    remote_src: yes
+    owner: prometheus
+    group: prometheus
+    mode: '0755'
+  loop:
+    - console_libraries
+    - consoles
+
+- name: Prometheus - Template prometheus config 
+  template:
+    src: "prometheus.yml.j2" 
+    dest: "/etc/prometheus/prometheus.yml"
+    owner: prometheus
+    group: prometheus
+    mode: '0644'
+
+- name: Prometheus - Add systemd service
+  template:
+    src: "prometheus.service.j2"
+    dest: "/etc/systemd/system/prometheus.service"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Prometheus - Reload daemons
+  systemd:
+    state: started
+    enabled: yes
+    name: prometheus
+    daemon_reload: yes
+
+## To remove if haproxy in front and allowing localhost only
+- name: Prometheus - Open port tcp/9090
+  ufw:
+    rule: allow
+    port: 9090
+    proto: tcp
 
 - name: Prometheus - Removing the temporary file
   when: tmp_dir.path is defined

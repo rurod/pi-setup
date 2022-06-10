@@ -1,0 +1,5 @@
+---
+- name: Fail2Ban - Reload
+  shell:
+    command: fail2ban-client reload
+...

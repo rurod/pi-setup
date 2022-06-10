@@ -1,0 +1,21 @@
+---
+- name: Main - Prepare Pi
+  tags: prepare-pi
+  include_tasks:
+    file: prepare-pi.yml
+
+- name: Main - Install VPN
+  tags: vpn
+  include_tasks:
+    file: openvpn.yml
+
+- name: Main - Install Prometheus
+  tags: prometheus
+  include_tasks:
+    file: prometheus.yml
+
+- name: Main - Install Node Exporter
+  tags: node_exporter
+  include_tasks:
+    file: node_exporter.yml
+...

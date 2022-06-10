@@ -54,6 +54,22 @@
   shell:
     command: "openpvn --genkey secret /etc/openvpn/{{ vpn.name }}/ta.key"
 
+- name: OpenVPN - Fetch the generated ta.key
+  when: not file_data.stat.exists
+  fetch:
+    src: "/etc/openvpn/{{ vpn.name }}/ta.key"
+    dest: "/tmp/ta.key.{{ vpn.name }}"
+
+- name: OpenVPN - Configure fail2ban
+  template:
+    src: "f2b-jail-openvpn.conf.j2"
+    dest: "/etc/fail2ban/jail.d/{{ vpn.name }}.conf" 
+    owner: root
+    group: root
+    mode: '0644'
+  notify: 
+    - Fail2Ban - Reload
+
 - name: OpenVPN - Enabled and start service
   systemd:
     state: started

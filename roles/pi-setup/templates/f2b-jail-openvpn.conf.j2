@@ -1,0 +1,11 @@
+# Fail2Ban configuration fragment for OpenVPN
+
+[openvpn]
+enabled  = true
+port     = {{ vpn.port }} 
+protocol = {{ vpn.proto }}
+filter   = openvpn
+logpath  = /var/log/openvpn/{{ vpn.name }}.log
+banaction= ufw
+maxretry = 3
+

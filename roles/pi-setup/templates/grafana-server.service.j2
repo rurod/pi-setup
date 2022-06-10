@@ -1,0 +1,18 @@
+[Unit]
+Description=Grafana Server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=grafana
+Group=grafana
+Type=notify
+Restart=on-failure
+WorkingDirectory=/usr/share/grafana
+RuntimeDirectory=grafana
+RuntimeDirectoryMode=0750
+ExecStart=/usr/local/bin/grafana-server                                                   \
+                            --config=/etc/grafana/grafana.ini 
+
+[Install]
+WantedBy=multi-user.target
