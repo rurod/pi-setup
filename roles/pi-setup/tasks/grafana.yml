@@ -1,109 +1,121 @@
 ---
-- name: Grafana - Generate temporary install directory
-  tempfile:
-    state: directory
-    suffix: install
-  register: tmp_dir
+- name: Grafana - Is grafana installed ?
+  stat:
+    path: /usr/local/bin/grafana-server
+  register: __stat_grafana
 
-- name: Grafana - Add user
-  user:
-    state: present
-    name: grafana
-    shell: /usr/sbin/nologin
+- name: Grafana - Which version is installed ?
+  when: __stat_grafana.stat.exists
+  block:
+    - name: Grafana - Get version
+      shell:
+        cmd: "grafana-server -v"
+      register: __grafana_version_cmd
+      changed_when: false
 
-- name: Grafana - Create dirs
-  file:
-    state: directory
-    path: "{{ item }}"
-    owner: grafana
-    group: grafana
-    mode: '0755'
-  loop:
-    - /etc/grafana
-    - /var/lib/grafana
-    - /var/log/grafana
+    - name: Grafana - Extract installed version
+      set_fact:
+        __grafana_version: "{{ __grafana_version_cmd.stdout | regex_search('[0-9]+\\.[0-9]+\\.[0-9]+') }}"
 
-- name: Grafana - Download archive
-  get_url:
-    url: "{{ grafana_archive_url }}"
-    dest: "{{ tmp_dir.path }}/grafana.tar.gz"
-    mode: '0400'
+- name: Grafana - Install
+  when: not __stat_grafana.stat.exists or (__grafana_version != grafana_version) 
+  block:
+  - name: Grafana - Add user
+    user:
+      state: present
+      name: grafana
+      shell: /usr/sbin/nologin
+  
+  - name: Grafana - Create dirs
+    file:
+      state: directory
+      path: "{{ item }}"
+      owner: grafana
+      group: grafana
+      mode: '0755'
+    loop:
+      - /etc/grafana
+      - /var/lib/grafana
+      - /var/log/grafana
+  
+  - name: Grafana - Generate temporary install directory
+    tempfile:
+      state: directory
+      suffix: install
+    register: tmp_dir
 
-- name: Grafana - Unarchive
-  unarchive:
-    src: "{{ tmp_dir.path }}/grafana.tar.gz"
-    dest: "{{ tmp_dir.path }}/"
-    extra_opts: [--strip-components=1]
-    remote_src: yes
-
-- name: Grafana - Copy binary
-  copy:
-    src: "{{ tmp_dir.path }}/{{ item }}"
-    dest: "/usr/local/bin/{{ item }}"
-    remote_src: yes
-    owner: grafana
-    group: grafana
-    mode: '0755'
-  loop:
-    - grafana
-
-- name: Grafana - Copy files to /usr/share/grafana
-  copy:
-    src: "{{ tmp_dir.path }}/{{ item.name }}"
-    dest: "/usr/share/grafana/{{ item.name }}"
-    remote_src: yes
-    owner: grafana
-    group: grafana
-    mode: "{{ item.mode }}"
-  loop:
-    - {"name": "public", "mode": "0755"} 
-    - {"name": "plugins-bundled", "mode": "0755"} 
-    - {"name": "scripts", "mode": "0755"} 
-
-- name: Grafana - Copy files to /etc/gafana/
-  copy:
-    src: "{{ tmp_dir.path }}/ {{ item }}"
-    dest: "/etc/grafana/{{ item }}"
-    remote_src: yes
-    owner: grafana
-    group: grafana
-    mode: '0755'
-  loop:
-    - conf
-
-- name: Grafana - Template grafana config 
-  template:
-    src: "grafana.yml.j2" 
-    dest: "/etc/grafana/grafana.ini"
-    owner: grafana
-    group: grafana
-    mode: '0644'
-
-- name: Grafana - Add systemd service
-  template:
-    src: "grafana.service.j2"
-    dest: "/etc/systemd/system/grafana-server.service"
-    owner: root
-    group: root
-    mode: '0644'
-
-- name: Grafana - Reload daemons
-  systemd:
-    state: started
-    enabled: yes
-    name: grafana
-    daemon_reload: yes
-
-## To remove if haproxy in front and allowing localhost only
-- name: Grafana - Open port tcp/3000
-  ufw:
-    rule: allow
-    port: 3000
-    proto: tcp
-
-- name: Grafana - Removing the temporary file
-  when: tmp_dir.path is defined
-  file:
-    path: "{{ tmp_dir.path }}"
-    state: absent
+  - name: Grafana - Download archive
+    get_url:
+      url: "{{ grafana_download_url }}"
+      dest: "{{ tmp_dir.path }}/grafana.tar.gz"
+      mode: '0400'
+  
+  - name: Grafana - Unarchive
+    unarchive:
+      src: "{{ tmp_dir.path }}/grafana.tar.gz"
+      dest: "{{ tmp_dir.path }}/"
+      extra_opts: [--strip-components=1]
+      remote_src: yes
+  
+  - name: Grafana - Copy files to /usr/share/grafana
+    copy:
+      src: "{{ tmp_dir.path }}/{{ item.name }}"
+      dest: "/usr/share/grafana/"
+      remote_src: yes
+      owner: grafana
+      group: grafana
+      mode: "{{ item.mode }}"
+    loop:
+      - {"name": "public", "mode": "0755"} 
+      - {"name": "plugins-bundled", "mode": "0755"} 
+      - {"name": "scripts", "mode": "0755"} 
+      - {"name": "conf", "mode": "0755"} 
+  
+  - name: Grafana - Template grafana config 
+    template:
+      src: "grafana.ini.j2" 
+      dest: "/etc/grafana/grafana.ini"
+      owner: grafana
+      group: grafana
+      mode: '0644'
+  
+  - name: Grafana - Add systemd service
+    template:
+      src: "grafana-server.service.j2"
+      dest: "/etc/systemd/system/grafana-server.service"
+      owner: root
+      group: root
+      mode: '0644'
+  
+  ## To remove if haproxy in front and allowing localhost only
+  - name: Grafana - Open port tcp/3000
+    ufw:
+      rule: allow
+      port: 3000
+      proto: tcp
+  
+  - name: Grafana - Copy binary
+    copy:
+      src: "{{ tmp_dir.path }}/bin/{{ item }}"
+      dest: "/usr/local/bin/{{ item }}"
+      remote_src: yes
+      owner: grafana
+      group: grafana
+      mode: '0755'
+    loop:
+      - grafana-server
+      - grafana-cli
+  
+  - name: Grafana - Reload daemons
+    systemd:
+      state: restarted
+      enabled: yes
+      name: grafana-server
+      daemon_reload: yes
+  
+  - name: Grafana - Removing the temporary file
+    when: tmp_dir.path is defined
+    file:
+      path: "{{ tmp_dir.path }}"
+      state: absent
 ...

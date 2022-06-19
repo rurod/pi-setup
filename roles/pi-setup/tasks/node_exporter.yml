@@ -1,75 +1,96 @@
 ---
-- name: Node Exporter - Generate temporary install directory
-  tempfile:
-    state: directory
-    suffix: install
-  register: tmp_dir
+- name: Node Exporter - Is node exporter installed ?
+  stat:
+    path: /usr/local/bin/node_exporter
+  register: __stat_node_exporter
 
-- name: Node Exporter - Add user
-  user:
-    state: present
-    name: node_exporter
-    shell: /usr/sbin/nologin
+- name: Node Exporter - Which version is installed ?
+  when: __stat_node_exporter.stat.exists
+  block:
+    - name: Node Exporter - Get version
+      shell:
+        cmd: "node_exporter --version"
+      register: __node_exporter_version_cmd
+      changed_when: false
 
-- name: Node Exporter - Download archive
-  get_url:
-    url: "{{ node_exporter_archive_url }}"
-    dest: "{{ tmp_dir.path }}/node_exporter.tar.gz"
-    mode: '0400'
+    - name: Node Exporter - Extract installed version
+      set_fact:
+        __node_exporter_version: "{{ __node_exporter_version_cmd.stdout | regex_search('[0-9]+\\.[0-9]+\\.[0-9]+') }}"
 
-- name: Node Exporter - Unarchive
-  unarchive:
-    src: "{{ tmp_dir.path }}/node_exporter.tar.gz"
-    dest: "{{ tmp_dir.path }}/"
-    extra_opts: [--strip-components=1]
-    remote_src: yes
+- name: Node Exporter - Install
+  when: not __stat_node_exporter.stat.exists or (__node_exporter_version != node_exporter_version)
+  block:
+  - name: Node Exporter - Add user
+    user:
+      state: present
+      name: node_exporter
+      shell: /usr/sbin/nologin
+  
+  - name: Node Exporter - Generate temporary install directory
+    tempfile:
+      state: directory
+      suffix: install
+    register: tmp_dir
 
-- name: Node Exporter - Copy binary
-  copy:
-    src: "{{ tmp_dir.path }}/{{ item }}"
-    dest: "/usr/local/bin/{{ item }}"
-    remote_src: yes
-    owner: node_exporter
-    group: node_exporter
-    mode: '0755'
-  loop:
-    - node_exporter
-
-- name: Node Exporter - Add systemd service
-  template:
-    src: "node_exporter.service.j2"
-    dest: "/etc/systemd/system/node_exporter.service"
-    owner: root
-    group: root
-    mode: '0644'
-
-- name: Node Exporter - Reload daemons
-  systemd:
-    state: started
-    enabled: yes
-    name: node_exporter
-    daemon_reload: yes
-
-## To remove if haproxy in front and allowing localhost only
-- name: Node Exporter - Open port tcp/9100
-  ufw:
-    rule: allow
-    port: 9100
-    proto: tcp
-
-- name: Node Exporter - Append configuration to prometheus.yml
-  blockinfile:
-    path: /etc/prometheus/prometheus.yml
-    insertafter: "scrape_configs:"
-    marker: 
-    block: |
-        - job_name: "node_exporter"
-          static_configs:
-            - targets: ["localhost:9100"]
-
-- name: Node Exporter - Removing the temporary file
-  when: tmp_dir.path is defined
-  file:
-    path: "{{ tmp_dir.path }}"
-    state: absent
+  - name: Node Exporter - Download archive
+    get_url:
+      url: "{{ node_exporter_download_url }}"
+      dest: "{{ tmp_dir.path }}/node_exporter.tar.gz"
+      mode: '0400'
+  
+  - name: Node Exporter - Unarchive
+    unarchive:
+      src: "{{ tmp_dir.path }}/node_exporter.tar.gz"
+      dest: "{{ tmp_dir.path }}/"
+      extra_opts: [--strip-components=1]
+      remote_src: yes
+  
+  - name: Node Exporter - Add systemd service
+    template:
+      src: "node_exporter.service.j2"
+      dest: "/etc/systemd/system/node_exporter.service"
+      owner: root
+      group: root
+      mode: '0644'
+  
+  ## To remove if haproxy in front and allowing localhost only
+  - name: Node Exporter - Open port tcp/9100
+    ufw:
+      rule: allow
+      port: 9100
+      proto: tcp
+  
+  - name: Node Exporter - Append configuration to prometheus.yml
+    blockinfile:
+      path: /etc/prometheus/prometheus.yml
+      insertafter: "scrape_configs:"
+      marker: 
+      block: |
+          - job_name: "node_exporter"
+            static_configs:
+              - targets: ["localhost:9100"]
+  
+  - name: Node Exporter - Copy binary
+    copy:
+      src: "{{ tmp_dir.path }}/{{ item }}"
+      dest: "/usr/local/bin/{{ item }}"
+      remote_src: yes
+      owner: node_exporter
+      group: node_exporter
+      mode: '0755'
+    loop:
+      - node_exporter
+  
+  - name: Node Exporter - Reload daemons
+    systemd:
+      state: restarted
+      enabled: yes
+      name: node_exporter
+      daemon_reload: yes
+  
+  - name: Node Exporter - Removing the temporary file
+    when: tmp_dir.path is defined
+    file:
+      path: "{{ tmp_dir.path }}"
+      state: absent
 ...

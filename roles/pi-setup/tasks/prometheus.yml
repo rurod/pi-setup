@@ -1,97 +1,118 @@
 ---
-- name: Prometheus - Generate temporary install directory
-  tempfile:
-    state: directory
-    suffix: install
-  register: tmp_dir
+- name: Prometheus - Is prometheus installed ?
+  stat:
+    path: /usr/local/bin/prometheus
+  register: __stat_prometheus
 
-- name: Prometheus - Add user
-  user:
-    state: present
-    name: prometheus
-    shell: /usr/sbin/nologin
+- name: Prometheus - Which version is installed ?
+  when: __stat_prometheus.stat.exists
+  block:
+    - name: Prometheus - Get version
+      shell:
+        cmd: "prometheus --version"
+      register: __prometheus_version_cmd
+      changed_when: false
 
-- name: Prometheus - Create dirs
-  file:
-    state: directory
-    path: "{{ item }}"
-    owner: prometheus
-    group: prometheus
-    mode: '0755'
-  loop:
-    - /etc/prometheus
-    - /var/lib/prometheus
+    - name: Prometheus - Extract installed version
+      set_fact:
+        __prometheus_version: "{{ __prometheus_version_cmd.stdout | regex_search('[0-9]+\\.[0-9]+\\.[0-9]+') }}"
 
-- name: Prometheus - Download archive
-  get_url:
-    url: "{{ prometheus_archive_url }}"
-    dest: "{{ tmp_dir.path }}/prometheus.tar.gz"
-    mode: '0400'
-
-- name: Prometheus - Unarchive
-  unarchive:
-    src: "{{ tmp_dir.path }}/prometheus.tar.gz"
-    dest: "{{ tmp_dir.path }}/"
-    extra_opts: [--strip-components=1]
-    remote_src: yes
-
-- name: Prometheus - Copy binary
-  copy:
-    src: "{{ tmp_dir.path }}/{{ item }}"
-    dest: "/usr/local/bin/{{ item }}"
-    remote_src: yes
-    owner: prometheus
-    group: prometheus
-    mode: '0755'
-  loop:
-    - prometheus
-    - promtool
-
-- name: Prometheus - Copy console directories
-  copy:
-    src: "{{ tmp_dir.path }}/{{ item }}"
-    dest: "/etc/prometheus/{{ item }}"
-    remote_src: yes
-    owner: prometheus
-    group: prometheus
-    mode: '0755'
-  loop:
-    - console_libraries
-    - consoles
-
-- name: Prometheus - Template prometheus config 
-  template:
-    src: "prometheus.yml.j2" 
-    dest: "/etc/prometheus/prometheus.yml"
-    owner: prometheus
-    group: prometheus
-    mode: '0644'
-
-- name: Prometheus - Add systemd service
-  template:
-    src: "prometheus.service.j2"
-    dest: "/etc/systemd/system/prometheus.service"
-    owner: root
-    group: root
-    mode: '0644'
-
-- name: Prometheus - Reload daemons
-  systemd:
-    state: started
-    enabled: yes
-    name: prometheus
-    daemon_reload: yes
-
-## To remove if haproxy in front and allowing localhost only
-- name: Prometheus - Open port tcp/9090
-  ufw:
-    rule: allow
-    port: 9090
-    proto: tcp
-
-- name: Prometheus - Removing the temporary file
-  when: tmp_dir.path is defined
-  file:
-    path: "{{ tmp_dir.path }}"
-    state: absent
+- name: Prometheus - Install
+  when: not __stat_prometheus.stat.exists or (__prometheus_version != prometheus_version) 
+  block:
+  - name: Prometheus - Add user
+    user:
+      state: present
+      name: prometheus
+      shell: /usr/sbin/nologin
+  
+  - name: Prometheus - Create dirs
+    file:
+      state: directory
+      path: "{{ item }}"
+      owner: prometheus
+      group: prometheus
+      mode: '0755'
+    loop:
+      - /etc/prometheus
+      - /var/lib/prometheus
+  
+  - name: Prometheus - Generate temporary install directory
+    tempfile:
+      state: directory
+      suffix: install
+    register: tmp_dir
+  
+  - name: Prometheus - Download archive
+    get_url:
+      url: "{{ prometheus_download_url }}"
+      dest: "{{ tmp_dir.path }}/prometheus.tar.gz"
+      mode: '0400'
+  
+  - name: Prometheus - Unarchive
+    unarchive:
+      src: "{{ tmp_dir.path }}/prometheus.tar.gz"
+      dest: "{{ tmp_dir.path }}/"
+      extra_opts: [--strip-components=1]
+      remote_src: yes
+  
+  - name: Prometheus - Copy console directories
+    copy:
+      src: "{{ tmp_dir.path }}/{{ item }}"
+      dest: "/etc/prometheus/{{ item }}"
+      remote_src: yes
+      owner: prometheus
+      group: prometheus
+      mode: '0755'
+    loop:
+      - console_libraries
+      - consoles
+  
+  - name: Prometheus - Template prometheus config 
+    template:
+      src: "prometheus.yml.j2" 
+      dest: "/etc/prometheus/prometheus.yml"
+      owner: prometheus
+      group: prometheus
+      mode: '0644'
+  
+  - name: Prometheus - Add systemd service
+    template:
+      src: "prometheus.service.j2"
+      dest: "/etc/systemd/system/prometheus.service"
+      owner: root
+      group: root
+      mode: '0644'
+  
+  ## To remove if haproxy in front and allowing localhost only
+  - name: Prometheus - Open port tcp/9090
+    ufw:
+      rule: allow
+      port: 9090
+      proto: tcp
+  
+  - name: Prometheus - Copy binary
+    copy:
+      src: "{{ tmp_dir.path }}/{{ item }}"
+      dest: "/usr/local/bin/{{ item }}"
+      remote_src: yes
+      owner: prometheus
+      group: prometheus
+      mode: '0755'
+    loop:
+      - prometheus
+      - promtool
+  
+  - name: Prometheus - Reload daemons
+    systemd:
+      state: restarted
+      enabled: yes
+      name: prometheus
+      daemon_reload: yes
+  
+  - name: Prometheus - Removing the temporary file
+    when: tmp_dir.path is defined
+    file:
+      path: "{{ tmp_dir.path }}"
+      state: absent
 ...

@@ -23,4 +23,9 @@
   tags: alertmanager
   import_tasks:
     file: alertmanager.yml
+
+- name: Main - Install Grafana
+  tags: Grafana
+  import_tasks:
+    file: grafana.yml
 ...
