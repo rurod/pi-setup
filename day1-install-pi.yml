@@ -1,0 +1,10 @@
+---
+- name: Install all services Pi
+  hosts: all
+  become: true 
+
+  tasks:
+    - name: Run pi-setup
+      import_role:
+        name: pi-setup
+...

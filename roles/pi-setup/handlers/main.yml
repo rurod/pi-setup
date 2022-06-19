@@ -1,5 +1,10 @@
 ---
 - name: Fail2Ban - Reload
   shell:
-    command: fail2ban-client reload
+    command: "fail2ban-client reload"
+
+- name: Prometheus - Restart
+  systemd:
+    state: restarted
+    name: prometheus
 ...

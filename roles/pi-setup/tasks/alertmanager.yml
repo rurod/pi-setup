@@ -1,0 +1,87 @@
+---
+- name: Alertmanager - Generate temporary install directory
+  tempfile:
+    state: directory
+    suffix: install
+  register: tmp_dir
+
+- name: Alertmanager - Add user
+  user:
+    state: present
+    name: alertmanager
+    shell: /usr/sbin/nologin
+
+- name: Alertmanager - Create dirs
+  file:
+    state: directory
+    path: "{{ item }}"
+    owner: alertmanager
+    group: alertmanager
+    mode: '0755'
+  loop:
+    - /etc/alertmanager
+    - /var/lib/alertmanager
+
+- name: Alertmanager - Download archive
+  get_url:
+    url: "{{ alertmanager_archive_url }}"
+    dest: "{{ tmp_dir.path }}/alertmanager.tar.gz"
+    mode: '0400'
+
+- name: Alertmanager - Unarchive
+  unarchive:
+    src: "{{ tmp_dir.path }}/alertmanager.tar.gz"
+    dest: "{{ tmp_dir.path }}/"
+    extra_opts: [--strip-components=1]
+    remote_src: yes
+
+- name: Alertmanager - Copy binary
+  copy:
+    src: "{{ tmp_dir.path }}/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    remote_src: yes
+    owner: alertmanager
+    group: alertmanager
+    mode: '0755'
+  loop:
+    - alertmanager
+    - amtool
+
+- name: Alertmanager - Template alertmanager config 
+  template:
+    src: "alertmanager.yml.j2" 
+    dest: "/etc/alertmanager/alertmanager.yml"
+    owner: alertmanager
+    group: alertmanager
+    mode: '0640'
+
+- name: Alertmanager - Add systemd service
+  template:
+    src: "alertmanager.service.j2"
+    dest: "/etc/systemd/system/alertmanager.service"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Alertmanager - Reload daemons
+  systemd:
+    state: started
+    enabled: yes
+    name: alertmanager
+    daemon_reload: yes
+  notify:
+    - Prometheus - Restart
+
+## To remove if haproxy in front and allowing localhost only
+- name: Alertmanager - Open port tcp/9093
+  ufw:
+    rule: allow
+    port: 9093
+    proto: tcp
+
+- name: Alertmanager - Removing the temporary file
+  when: tmp_dir.path is defined
+  file:
+    path: "{{ tmp_dir.path }}"
+    state: absent
+...

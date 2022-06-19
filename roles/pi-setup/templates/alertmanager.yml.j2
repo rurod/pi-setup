@@ -1,0 +1,23 @@
+global:
+  resolve_timeout: 2m
+  #telegram_api_url: https://api.telegram.org
+
+route:
+  group_by: ['altername']
+  # Send all notifications to me.
+  group_wait: 30s
+  group_interval: 1m
+  repeat_interval: 5s
+  receiver: 'telegram-me'
+
+receivers:
+{% for receiver in telegram_receivers %}
+  - name: 'telegram-me'
+    telegram_configs:
+      - send_resolved: true
+        api_url: https://api.telegram.org
+        bot_token: '{{ receiver.bot_token }}'
+        chat_id: {{ receiver.chat_id }}
+        parse_mode: "Markdown"
+{% endfor %}
+

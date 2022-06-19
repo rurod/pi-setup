@@ -9,7 +9,6 @@
   user:
     state: present
     name: node_exporter
-    group: node_exporter
     shell: /usr/sbin/nologin
 
 - name: Node Exporter - Download archive
@@ -22,6 +21,7 @@
   unarchive:
     src: "{{ tmp_dir.path }}/node_exporter.tar.gz"
     dest: "{{ tmp_dir.path }}/"
+    extra_opts: [--strip-components=1]
     remote_src: yes
 
 - name: Node Exporter - Copy binary

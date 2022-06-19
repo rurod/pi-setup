@@ -6,12 +6,11 @@
     owner: root 
     group: root 
     mode: '0755'
-  loop: "{{ vpns }}"
 
 - name: OpenVPN - Create log directories
   file:
     state: directory
-    path: "/etc/openvpn/{{ vpn.name }}"
+    path: "/var/log/openvpn/{{ vpn.name }}"
     owner: root 
     group: root 
     mode: '0755'
@@ -62,8 +61,8 @@
 
 - name: OpenVPN - Configure fail2ban
   template:
-    src: "f2b-jail-openvpn.conf.j2"
-    dest: "/etc/fail2ban/jail.d/{{ vpn.name }}.conf" 
+    src: "f2b-jail-openvpn.local.j2"
+    dest: "/etc/fail2ban/jail.d/{{ vpn.name }}.local" 
     owner: root
     group: root
     mode: '0644'

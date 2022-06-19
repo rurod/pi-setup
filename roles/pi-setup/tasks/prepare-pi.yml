@@ -2,7 +2,7 @@
 - name: Packages - Install required
   apt:
     state: present
-    pkg: {{ mandatory_packages_list }}
+    pkg: "{{ mandatory_packages_list }}"
 
 - name: Packages - Update all
   apt:

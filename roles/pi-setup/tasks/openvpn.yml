@@ -2,12 +2,12 @@
 - name: Package - Install OpenVPN
   apt:
     state: latest
-    name: OpenVPN
+    name: openvpn
 
-- name: Fail2Ban - Configure OpenVPN filter
+- name: Fail2Ban - Configure OpenVPN filter and jail
   template:
-    src: "f2b-filter-openvpn.local"
-    dest: "/etc/fail2ban/filter.d/openvpn.conf"
+    src: f2b-filter-openvpn.local.j2
+    dest: "/etc/fail2ban/filter.d/openvpn.local"
     owner: root
     group: root
     mode: '0644'
@@ -15,7 +15,9 @@
 - name: OpenVPN - Configure VPNs
   include_tasks:
     file: private/openvpn-config.yml
-  vars:
-    vpn: "{{ item }}"
   loop: "{{ vpns }}" 
+  loop_control:
+    loop_var: vpn
+    label: "{{ vpn.name }}"
+  no_log: true
 ...

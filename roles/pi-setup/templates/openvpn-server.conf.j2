@@ -1,30 +1,30 @@
-port {{ port }}
-proto {{ proto }}
+port {{ vpn.port }}
+proto {{ vpn.proto }}
 dev tun
 
-ca {{ name }}/ca.crt
-cert {{ name }}/ovpn-server.crt
-key {{ name }}/ovpn-server.key
-dh {{ name }}/dh.key
-tls-crypt {{ name }}/ta.key
+ca {{ vpn.name }}/ca.crt
+cert {{ vpn.name }}/ovpn-server.crt
+key {{ vpn.name }}/ovpn-server.key
+dh {{ vpn.name }}/dh.key
+tls-crypt {{ vpn.name }}/ta.key
 
 topology subnet
 plugin /usr/lib/openvpn/openvpn-plugin-auth-pam.so login
 
-server {{ subnet }} {{ subnet_netmask }}
-ifconfig-pool-persist {{ name }}/ipp.txt
+server {{ vpn.subnet }} {{ vpn.subnet_mask }}
+ifconfig-pool-persist {{ vpn.name }}/ipp.txt
 keepalive 10 120
 
 user nobody
-group nobody
+group nogroup
 persist-key
 persist-tun
-status /var/log/openvpn/{{ name }}/status.log
-log /var/log/openvpn/{{ name }}/vpn.log
+status /var/log/openvpn/{{ vpn.name }}/status.log
+log /var/log/openvpn/{{ vpn.name }}/vpn.log
 verb 3
 explicit-exit-notify 1
 
-replay-persist {{ name }}/replay-persist
+replay-persist {{ vpn.name }}/replay-persist
 
 tls-version-min 1.2
 tls-version-max 1.2

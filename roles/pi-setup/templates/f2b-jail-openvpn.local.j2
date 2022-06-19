@@ -3,9 +3,9 @@
 [openvpn]
 enabled  = true
 port     = {{ vpn.port }} 
-protocol = {{ vpn.proto }}
+protocol = {{ vpn.proto[0:3] }}
 filter   = openvpn
-logpath  = /var/log/openvpn/{{ vpn.name }}.log
+logpath  = /var/log/openvpn/{{ vpn.name }}/vpn.log
 banaction= ufw
 maxretry = 3
 
